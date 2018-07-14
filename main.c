@@ -91,4 +91,24 @@ int main(int argc,char *argv[])
     len = sizeof(client);
     sock2 = accept(sock1, (struct sockaddr*)&client, (socklen_t *) &len);
     printf("%s\n","Client connected...");
+
+    recv(sock2, &buf, 128, 0);
+    printf("%s\n", buf);
+    if(strcmp(buf, "BONJ") == 0) {
+        send(sock2, "WHO", 128, 0);
+        recv(sock2, &account, 128, 0);
+
+        send(sock2, "PASSWD", 128, 0);
+        for (int i = 0; i < 3; ++i) {
+            recv(sock2, &password, 128, 0);
+            if(verify_account(account, password)) {
+                send(sock2, "WELC", 128, 0);
+                return loop(sock2);
+            } else {
+                send(sock2, "WRONG", 128, 0);
+            }
+        }
+
+        send(sock2, "BYE", 128, 0);
+    }
 }
