@@ -1,3 +1,59 @@
+#include <netinet/in.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include "commands.h"
+
+int loop(int sock) {
+    struct stat obj;
+    size_t size;
+    char buf[128], command[8], filename[128];
+
+    accept:
+    printf("%s\n", "Waiting for command.");
+    recv(sock, buf, 128, 0);
+    sscanf(buf, "%s", command);
+    printf("%s\n", "Command received.");
+    if(!strcmp(command, "rls")) {
+        rls(sock, obj);
+    } else if(!strcmp(command,"downl")) {
+        downl(sock, buf, filename, obj);
+    } else if(!strcmp(command, "upld")) {
+        upld(sock, buf, command, filename, size);
+    } else if(!strcmp(command, "rpwd")) {
+        rpwd(sock, buf);
+    } else if(!strcmp(command, "rcd")) {
+        rcd(sock, buf);
+    } else if(!strcmp(command, "quit")) {
+        printf("%s\n","FTP server quitting..");
+        quit(sock);
+        return 0;
+    }
+
+    goto accept;
+}
+
+int verify_account(char* account, char* password) {
+    FILE *fp=fopen("accounts","r");
+    short authenticated = 0;
+    char tmp[512]={0x0};
+    char p[256];
+    strcpy(p, ";");
+    strcat(p, password);
+
+    while(fp != NULL && fgets(tmp, sizeof(tmp), fp) != NULL)
+    {
+        if(strstr(tmp, account) && strstr(tmp, p))
+            authenticated = 1;
+    }
+
+    if(fp != NULL)
+        fclose(fp);
+
+    return authenticated;
+}
+
 int main(int argc,char *argv[])
 {
     struct sockaddr_in server, client;
