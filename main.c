@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include "commands.h"
 #include <stdbool.h>
 #include <unistd.h>
+#include "cmd.h"
 
 bool loop(int sock) {
     struct stat obj;
