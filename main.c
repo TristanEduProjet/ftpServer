@@ -4,36 +4,41 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include "commands.h"
+#include <stdbool.h>
+#include <unistd.h>
 
-int loop(int sock) {
+bool loop(int sock) {
     struct stat obj;
     size_t size;
     char buf[128], command[8], filename[128];
 
     //boucle de command
-    accept:
-    printf("%s\n", "Waiting for command.");
-    recv(sock, buf, 128, 0);
-    sscanf(buf, "%s", command);
-    printf("%s\n", "Command received.");
+    while(true) {
+        printf("%s\n", "Waiting for command.");
+        recv(sock, buf, 128, 0);
+        sscanf(buf, "%s", command);
+        printf("Command \"%s\" received.\n", command);
 
-    if(!strcmp(command, "rls")) {
-        rls(sock, obj);
-    } else if(!strcmp(command,"downl")) {
-        downl(sock, buf, filename, obj);
-    } else if(!strcmp(command, "upld")) {
-        upld(sock, buf, command, filename, size);
-    } else if(!strcmp(command, "rpwd")) {
-        rpwd(sock, buf);
-    } else if(!strcmp(command, "rcd")) {
-        rcd(sock, buf);
-    } else if(!strcmp(command, "quit")) {
-        printf("%s\n","FTP server quitting..");
-        quit(sock);
-        return 0;
+        if(!strcmp(command, "rls")) {
+            rls(sock, obj);
+        } else if(!strcmp(command,"downl")) {
+            downl(sock, buf, filename, obj);
+        } else if(!strcmp(command, "upld")) {
+            upld(sock, buf, command, filename, size);
+        } else if(!strcmp(command, "rpwd")) {
+            rpwd(sock, buf);
+        } else if(!strcmp(command, "rcd")) {
+            rcd(sock, buf);
+        } else if(!strcmp(command, "quit")) {
+            printf("%s\n","FTP client closing...");
+            quit(sock);
+            return true;
+        } else if(!strcmp(command, "shutdown")) {
+            printf("%s\n","FTP server quitting...");
+            quit(sock);
+            return false;
+        }
     }
-
-    goto accept;
 }
 
 //verify les credentials envoyés par le client 
@@ -95,33 +100,38 @@ int main(int argc,char *argv[])
         exit(1);
     }
 
+    bool continu = true;
+    while(continu) {
+        printf("%s\n","Waiting for client to connect...");
+        len = sizeof(client);
+        //recoit la connection d'un client
+        sock2 = accept(sock1, (struct sockaddr*)&client, (socklen_t *) &len);
+        printf("%s\n","Client connected...");
 
-    printf("%s\n","Waiting for client to connect...");
-    len = sizeof(client);
-    //recoit la connection d'un client 
-    sock2 = accept(sock1, (struct sockaddr*)&client, (socklen_t *) &len);
-    printf("%s\n","Client connected...");
+        //etape d'identification du client par login/mdp
+        recv(sock2, &buf, 128, 0);
+        printf("%s\n", buf);
+        if(strcmp(buf, "BONJ") == 0) {
+            send(sock2, "WHO", 128, 0);
+            recv(sock2, &account, 128, 0);
 
-    //etape d'identification du client par login/mdp
-    recv(sock2, &buf, 128, 0);
-    printf("%s\n", buf);
-    if(strcmp(buf, "BONJ") == 0) {
-        send(sock2, "WHO", 128, 0);
-        recv(sock2, &account, 128, 0);
-
-        send(sock2, "PASSWD", 128, 0);
-        //annule la connection apres trois essais raté 
-        for (int i = 0; i < 3; ++i) {
-            recv(sock2, &password, 128, 0);
-            if(verify_account(account, password)) {
-                send(sock2, "WELC", 128, 0);
-                return loop(sock2);
-            } else {
-                //quand le mdp de passe rentré est incorrect
-                send(sock2, "WRONG", 128, 0);
+            send(sock2, "PASSWD", 128, 0);
+            //annule la connection apres trois essais raté
+            for (int i = 0; i < 3; ++i) {
+                recv(sock2, &password, 128, 0);
+                if(verify_account(account, password)) {
+                    send(sock2, "WELC", 128, 0);
+                    continu = loop(sock2);
+                    break;
+                } else {
+                    //quand le mdp de passe rentré est incorrect
+                    send(sock2, "WRONG", 128, 0);
+                }
             }
-        }
 
-        send(sock2, "BYE", 128, 0);
+            send(sock2, "BYE", 128, 0);
+        }
+        close(sock2);
     }
+    close(sock1);
 }
