@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include "commands.h"
+#include "cmd.h"
 
 int loop(int sock) {
     struct stat obj;
